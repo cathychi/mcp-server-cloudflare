@@ -1,13 +1,13 @@
-import { DurableObject } from "cloudflare:workers"
+import { DurableObject } from 'cloudflare:workers'
 
 import { OPEN_CONTAINER_PORT } from '../shared/consts'
 import { ExecParams, FileWrite } from '../shared/schema'
 import { MAX_CONTAINERS, proxyFetch, startAndWaitForPort } from './containerHelpers'
 import { getContainerManager } from './containerManager'
+import { fileToBase64 } from './utils'
 
 import type { FileList } from '../shared/schema'
 import type { Env } from './context'
-import { fileToBase64 } from "./utils"
 
 export class UserContainer extends DurableObject<Env> {
 	constructor(
@@ -41,7 +41,7 @@ export class UserContainer extends DurableObject<Env> {
 		const containerManager = getContainerManager(this.env)
 
 		// if more than half of our containers are being used, let's try reaping
-		if ((await containerManager.listActive()).length >= (MAX_CONTAINERS / 2)) {
+		if ((await containerManager.listActive()).length >= MAX_CONTAINERS / 2) {
 			await containerManager.tryKillOldContainers()
 			if ((await containerManager.listActive()).length >= MAX_CONTAINERS) {
 				throw new Error(
@@ -129,7 +129,10 @@ export class UserContainer extends DurableObject<Env> {
 	}
 	async container_file_read(
 		filePath: string
-	): Promise<{ type: "text", textOutput: string; mimeType: string | undefined } | { type: "base64", base64Output: string; mimeType: string | undefined }> {
+	): Promise<
+		| { type: 'text'; textOutput: string; mimeType: string | undefined }
+		| { type: 'base64'; base64Output: string; mimeType: string | undefined }
+	> {
 		const res = await proxyFetch(
 			this.env.ENVIRONMENT,
 			this.ctx.container,
@@ -144,18 +147,18 @@ export class UserContainer extends DurableObject<Env> {
 		const blob = await res.blob()
 
 		console.log(mimeType)
-		
+
 		if (mimeType && mimeType.startsWith('text')) {
 			return {
-				type: "text",
+				type: 'text',
 				textOutput: await blob.text(),
-				mimeType
+				mimeType,
 			}
 		} else {
 			return {
-				type: "base64",
+				type: 'base64',
 				base64Output: await fileToBase64(blob),
-				mimeType
+				mimeType,
 			}
 		}
 	}
